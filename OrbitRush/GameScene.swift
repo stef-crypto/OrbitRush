@@ -3,6 +3,36 @@ import UIKit
 
 final class GameScene: SKScene {
     private enum State { case ready, orbiting, flying, gameOver }
+    private enum SpaceZone: Int {
+        case deepSpace, neonNebula, solarStorm, void
+
+        var title: String {
+            switch self {
+            case .deepSpace: return "DEEP SPACE"
+            case .neonNebula: return "NEON NEBULA"
+            case .solarStorm: return "SOLAR STORM"
+            case .void: return "THE VOID"
+            }
+        }
+
+        var background: UIColor {
+            switch self {
+            case .deepSpace: return UIColor(red: 0.025, green: 0.035, blue: 0.09, alpha: 1)
+            case .neonNebula: return UIColor(red: 0.09, green: 0.018, blue: 0.13, alpha: 1)
+            case .solarStorm: return UIColor(red: 0.12, green: 0.035, blue: 0.018, alpha: 1)
+            case .void: return UIColor(red: 0.012, green: 0.008, blue: 0.03, alpha: 1)
+            }
+        }
+
+        var planetColors: [UIColor] {
+            switch self {
+            case .deepSpace: return [.systemPink, .systemOrange, .systemPurple, .systemTeal, .systemYellow]
+            case .neonNebula: return [.systemPink, .systemPurple, .magenta, .systemCyan]
+            case .solarStorm: return [.systemOrange, .systemRed, .systemYellow, .brown]
+            case .void: return [.systemIndigo, .darkGray, .systemPurple, .white]
+            }
+        }
+    }
 
     private let player = SKShapeNode(circleOfRadius: 10)
     private let playerSprite = SKSpriteNode()
@@ -40,6 +70,7 @@ final class GameScene: SKScene {
     var onScoreChanged: ((Int) -> Void)?
     private var multiplayerRoundActive = false
     private var multiplayerTotalScore = 0
+    private var currentZone: SpaceZone = .deepSpace
 
     private let scoreLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
     private let bestLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
@@ -50,6 +81,7 @@ final class GameScene: SKScene {
     private let shieldLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
     private let summaryLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private let orbitTimerLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+    private let zoneLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
 
     override func didMove(to view: SKView) {
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
@@ -126,6 +158,12 @@ final class GameScene: SKScene {
         orbitTimerLabel.alpha = 0
         addChild(orbitTimerLabel)
 
+        zoneLabel.fontSize = 10
+        zoneLabel.fontColor = .systemCyan
+        zoneLabel.text = currentZone.title
+        zoneLabel.zPosition = 20
+        addChild(zoneLabel)
+
         titleLabel.fontSize = 37
         titleLabel.text = "ORBIT RUSH"
         titleLabel.zPosition = 20
@@ -148,6 +186,7 @@ final class GameScene: SKScene {
         coinLabel.position = CGPoint(x: -size.width / 2 + 22, y: size.height / 2 - 92)
         shieldLabel.position = CGPoint(x: size.width / 2 - 22, y: size.height / 2 - 92)
         summaryLabel.position = CGPoint(x: 0, y: 45)
+        zoneLabel.position = CGPoint(x: 0, y: size.height / 2 - 164)
     }
 
     private func setupPlayer() {
@@ -556,6 +595,7 @@ final class GameScene: SKScene {
         let planetBonus = targetPlanet.isBonus ? 2 : 0
         let gained = 1 + comboBonus + planetBonus + (isPerfect ? 1 : 0)
         score += gained
+        updateSpaceZone()
         if multiplayerRoundActive {
             multiplayerTotalScore += gained
             onScoreChanged?(multiplayerTotalScore)
@@ -602,7 +642,7 @@ final class GameScene: SKScene {
     }
 
     private func spawnTarget() {
-        let colors: [UIColor] = [.systemPink, .systemOrange, .systemPurple, .systemTeal, .systemYellow]
+        let colors = currentZone.planetColors
         let isBonus = score > 2 && Int.random(in: 0..<5) == 0
         targetPlanet = PlanetNode(
             radius: isBonus ? 27 : CGFloat.random(in: 31...44),
@@ -784,6 +824,42 @@ final class GameScene: SKScene {
         instructionLabel.run(.sequence([.wait(forDuration: 0.6), .fadeOut(withDuration: 0.25)]))
     }
 
+    func startSoloGame() {
+        isPaused = false
+        restart()
+        state = .ready
+        titleLabel.text = "ORBIT RUSH"
+        titleLabel.fontColor = .white
+        titleLabel.alpha = 1
+        instructionLabel.text = "TIPPE ZUM STARTEN"
+        instructionLabel.alpha = 1
+    }
+
+    func pauseForMenu() {
+        isPaused = true
+    }
+
+    private func updateSpaceZone() {
+        let next: SpaceZone
+        switch score {
+        case 0..<8: next = .deepSpace
+        case 8..<18: next = .neonNebula
+        case 18..<30: next = .solarStorm
+        default: next = .void
+        }
+        guard next != currentZone else { return }
+        currentZone = next
+        backgroundColor = next.background
+        zoneLabel.text = next.title
+        zoneLabel.fontColor = next.planetColors.first ?? .systemCyan
+        enumerateChildNodes(withName: "star") { node, _ in
+            (node as? SKShapeNode)?.fillColor = (next.planetColors.randomElement() ?? .white).withAlphaComponent(CGFloat.random(in: 0.25...0.72))
+        }
+        flash(color: next.planetColors.first ?? .systemCyan, alpha: 0.2)
+        showCenterMessage(next.title, color: next.planetColors.first ?? .systemCyan)
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+    }
+
     func finishMultiplayerRound() {
         multiplayerRoundActive = false
         guard state != .gameOver else { return }
@@ -819,6 +895,10 @@ final class GameScene: SKScene {
         summaryLabel.removeAllActions()
 
         score = 0
+        currentZone = .deepSpace
+        backgroundColor = currentZone.background
+        zoneLabel.text = currentZone.title
+        zoneLabel.fontColor = .systemCyan
         runCoins = 0
         combo = 0
         orbitTravel = 0

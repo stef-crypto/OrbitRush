@@ -10,6 +10,7 @@ struct GameView: View {
     @State private var showStats = false
     @State private var showShop = false
     @State private var showMultiplayerMenu = false
+    @State private var showMainMenu = true
     @StateObject private var recording = RecordingManager.shared
     @StateObject private var store = StoreManager.shared
     @StateObject private var multiplayer = MultiplayerManager.shared
@@ -44,8 +45,19 @@ struct GameView: View {
                 .ignoresSafeArea()
                 .background(Color(red: 0.025, green: 0.035, blue: 0.09))
 
+            if !showMainMenu {
             VStack {
                 HStack {
+                    Button {
+                        scene.pauseForMenu()
+                        withAnimation(.easeOut(duration: 0.2)) { showMainMenu = true }
+                    } label: {
+                        Image(systemName: "house.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
                     Button {
                         recording.toggleRecording()
                     } label: {
@@ -160,7 +172,9 @@ struct GameView: View {
             }
             .padding(.top, 54)
             .padding(.trailing, 18)
+            }
 
+            if !showMainMenu {
             PhotosPicker(selection: $photoItems, maxSelectionCount: 8, matching: .images) {
                 HStack(spacing: 7) {
                     if isLoadingPhotos {
@@ -181,7 +195,9 @@ struct GameView: View {
             .onChange(of: photoItems) { _, items in
                 loadPhotos(items)
             }
+            }
 
+            if !showMainMenu {
             VStack(alignment: .leading, spacing: 10) {
                 if showPlayerPicker {
                     HStack(spacing: 8) {
@@ -235,6 +251,7 @@ struct GameView: View {
             .padding(.leading, 18)
             .padding(.bottom, 18)
             .allowsHitTesting(true)
+            }
 
             if !hasSeenTutorial {
                 tutorialOverlay
@@ -244,12 +261,18 @@ struct GameView: View {
 
             if showStats {
                 statsOverlay
-                    .zIndex(190)
+                    .zIndex(230)
             }
 
             if multiplayer.isVisible {
                 multiplayerOverlay
                     .zIndex(210)
+            }
+
+            if showMainMenu && hasSeenTutorial {
+                mainMenu
+                    .transition(.opacity.combined(with: .scale(scale: 1.02)))
+                    .zIndex(220)
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -263,7 +286,10 @@ struct GameView: View {
             scene.onScoreChanged = { score in
                 MultiplayerManager.shared.submit(score: score)
             }
-            multiplayer.onRoundStart = { [weak scene] in scene?.startMultiplayerRound() }
+            multiplayer.onRoundStart = { [weak scene] in
+                showMainMenu = false
+                scene?.startMultiplayerRound()
+            }
             multiplayer.onRoundEnd = { [weak scene] in scene?.finishMultiplayerRound() }
             multiplayer.onPlayerStyleResolved = { [weak scene] style in
                 selectedPlayer = style
@@ -275,6 +301,91 @@ struct GameView: View {
         }
         .sheet(isPresented: $showMultiplayerMenu) {
             multiplayerMenu
+        }
+    }
+
+    private var mainMenu: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.black.opacity(0.35), Color(red: 0.02, green: 0.04, blue: 0.13).opacity(0.92)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                Spacer()
+                playerImage(selectedPlayer)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 104, height: 104)
+                    .shadow(color: .cyan.opacity(0.8), radius: 18)
+
+                VStack(spacing: 4) {
+                    Text("ORBIT RUSH")
+                        .font(.system(size: 42, weight: .black, design: .rounded))
+                    Text("EIN FINGER. UNENDLICH WEIT.")
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .tracking(2)
+                        .foregroundStyle(.cyan)
+                }
+
+                Button {
+                    scene.startSoloGame()
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) { showMainMenu = false }
+                } label: {
+                    Label("SOLO STARTEN", systemImage: "play.fill")
+                        .font(.system(size: 18, weight: .black, design: .rounded))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.cyan, in: Capsule())
+                }
+
+                Button {
+                    if store.ownsMultiplayer { showMultiplayerMenu = true } else { showShop = true }
+                } label: {
+                    Label(store.ownsMultiplayer ? "MULTIPLAYER" : "MULTIPLAYER FREISCHALTEN", systemImage: store.ownsMultiplayer ? "person.2.fill" : "lock.fill")
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(Color.orange.opacity(0.82), in: Capsule())
+                }
+
+                HStack(spacing: 12) {
+                    menuTile("SPIELER", icon: "figure.run", color: .cyan) {
+                        scene.startSoloGame()
+                        showPlayerPicker = true
+                        showMainMenu = false
+                    }
+                    menuTile("SHOP", icon: "bag.fill", color: .mint) { showShop = true }
+                    menuTile("STATS", icon: "chart.bar.fill", color: .purple) { showStats = true }
+                    menuTile("RANGLISTE", icon: "trophy.fill", color: .yellow) { GameCenterManager.shared.showLeaderboard() }
+                }
+
+                Text("BEST  \(UserDefaults.standard.integer(forKey: "bestScore"))   •   ✦ \(UserDefaults.standard.integer(forKey: "coins"))")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.55))
+                Spacer()
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 42)
+            .frame(maxWidth: 480)
+        }
+    }
+
+    private func menuTile(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 7) {
+                Image(systemName: icon).font(.system(size: 19, weight: .bold)).foregroundStyle(color)
+                Text(title).font(.system(size: 8, weight: .black, design: .rounded)).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 62)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
     }
 

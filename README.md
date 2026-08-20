@@ -186,3 +186,10 @@ Die Figur umkreist einen Planeten. Tippe, um sie tangential ins All zu schießen
 - Orbit Rush Pro enthält Multiplayer und alle Style-Pakete
 - Multiplayer-Button führt ohne Berechtigung direkt zum Orbit Shop
 - App-Store-Texte, Datenschutz und Release-Checkliste aktualisiert
+# v10.1 Hauptmenü und Weltraumzonen
+
+- Neues Hauptmenü für Solo, Multiplayer, Spieler, Shop, Statistik und Rangliste
+- Home-Button führt jederzeit übersichtlich ins Menü zurück
+- Vier dynamische Zonen: Deep Space, Neon Nebula, Solar Storm und The Void
+- Hintergrund, Sterne und Planetenfarben verändern sich mit dem Fortschritt
+- Zonenwechsel werden mit Effekt und Haptik angekündigt
