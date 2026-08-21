@@ -16,9 +16,14 @@ final class ProgressManager {
         return defaults.integer(forKey: "dailyBest")
     }
 
+    var level: Int { max(1, defaults.integer(forKey: "playerXP") / 100 + 1) }
+    var xp: Int { defaults.integer(forKey: "playerXP") }
+    var xpInLevel: Int { xp % 100 }
+
     func recordLanding(perfect: Bool) {
         increment("totalLandings")
         if perfect { increment("perfectLandings") }
+        defaults.set(xp + (perfect ? 8 : 4), forKey: "playerXP")
         reportMilestones()
     }
 
@@ -29,6 +34,7 @@ final class ProgressManager {
 
     func recordAsteroid() {
         increment("asteroidsDestroyed")
+        defaults.set(xp + 2, forKey: "playerXP")
         reportMilestones()
     }
 

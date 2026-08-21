@@ -205,3 +205,15 @@ Die Figur umkreist einen Planeten. Tippe, um sie tangential ins All zu schießen
 - Animiertes Tippen, Fluglenken, Rettungswende, Projektil und 3–2–1-Timer
 - Flüssige Timeline-Animation mit 30 Bildern pro Sekunde
 - Seitenwechsel animieren nur die Demonstration statt den gesamten Bildschirm
+# v11.0 Next Level Update
+
+- Power-ups: Zeitlupe, Sternmagnet und Dreifachschuss
+- Boss-Planet nach jeder zehnten Punkteschwelle und bewegliche Ziele/Kometen
+- Clutch-Bonus für Sprünge in der letzten Countdown-Sekunde
+- Verstärkte Perfect-Landing-Effekte
+- Spielerlevel, XP-Leiste und dauerhafte Fortschrittsanzeige
+- Daily Run mit tagesbasierter Zielroute
+- Trainingsmodus ohne Game Over
+- Persönlicher Bestlauf als transparenter Ghost
+- Multiplayer-Siege und -Niederlagen in der Statistik
+- Teilen-Funktion sowie Optionen für reduzierte Effekte und kontrastreiche Zielhilfe

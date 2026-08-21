@@ -168,6 +168,8 @@ final class MultiplayerManager: NSObject, ObservableObject {
         guard phase == .playing || phase == .suddenDeath else { return }
         send(Packet(kind: .finish, value: localScore, startTime: nil))
         phase = .finished
+        let key = localScore > remoteScore ? "multiplayerWins" : "multiplayerLosses"
+        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: key) + 1, forKey: key)
         onRoundEnd?()
         UINotificationFeedbackGenerator().notificationOccurred(localScore >= remoteScore ? .success : .warning)
     }

@@ -3,6 +3,7 @@ import UIKit
 
 final class GameScene: SKScene {
     private enum State { case ready, orbiting, flying, gameOver }
+    private enum PowerUp: CaseIterable { case slowMotion, magnet, tripleShot }
     private enum SpaceZone: Int {
         case deepSpace, neonNebula, solarStorm, void
 
@@ -36,6 +37,7 @@ final class GameScene: SKScene {
 
     private let player = SKShapeNode(circleOfRadius: 10)
     private let playerSprite = SKSpriteNode()
+    private let ghostPlayer = SKShapeNode(circleOfRadius: 9)
     private let trail = SKEmitterNode()
     private let shieldAura = SKShapeNode(circleOfRadius: 35)
     private let cameraNode = SKCameraNode()
@@ -65,6 +67,21 @@ final class GameScene: SKScene {
     private var runCoins = 0
     private var hasShield = false
     private var collectible: SKShapeNode?
+    private var powerUpNode: SKShapeNode?
+    private var offeredPowerUp: PowerUp?
+    private var activePowerUp: PowerUp?
+    private var powerUpRemaining: TimeInterval = 0
+    private var launchedClutch = false
+    private var trainingMode = false
+    private var dailyMode = false
+    private var reducedEffects = false
+    private var colorBlindMode = false
+    private var nextBossAt = 10
+    private var bossDue = false
+    private var runElapsed: TimeInterval = 0
+    private var sampleAccumulator: TimeInterval = 0
+    private var runSamples: [CGPoint] = []
+    private var ghostSamples: [CGPoint] = []
     private var asteroids: [SKShapeNode] = []
     private var projectiles: [ProjectileNode] = []
     var onScoreChanged: ((Int) -> Void)?
@@ -82,6 +99,7 @@ final class GameScene: SKScene {
     private let summaryLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private let orbitTimerLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
     private let zoneLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+    private let powerUpLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
 
     override func didMove(to view: SKView) {
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
@@ -164,6 +182,12 @@ final class GameScene: SKScene {
         zoneLabel.zPosition = 20
         addChild(zoneLabel)
 
+        powerUpLabel.fontSize = 12
+        powerUpLabel.fontColor = .systemMint
+        powerUpLabel.horizontalAlignmentMode = .right
+        powerUpLabel.zPosition = 20
+        addChild(powerUpLabel)
+
         titleLabel.fontSize = 37
         titleLabel.text = "ORBIT RUSH"
         titleLabel.zPosition = 20
@@ -187,6 +211,7 @@ final class GameScene: SKScene {
         shieldLabel.position = CGPoint(x: size.width / 2 - 22, y: size.height / 2 - 92)
         summaryLabel.position = CGPoint(x: 0, y: 45)
         zoneLabel.position = CGPoint(x: 0, y: size.height / 2 - 164)
+        powerUpLabel.position = CGPoint(x: size.width / 2 - 22, y: size.height / 2 - 116)
     }
 
     private func setupPlayer() {
@@ -221,6 +246,13 @@ final class GameScene: SKScene {
         trail.particleColorBlendFactor = 1
         trail.targetNode = self
         player.addChild(trail)
+
+        ghostPlayer.fillColor = .systemCyan.withAlphaComponent(0.18)
+        ghostPlayer.strokeColor = .systemCyan.withAlphaComponent(0.5)
+        ghostPlayer.glowWidth = 7
+        ghostPlayer.zPosition = 4
+        ghostPlayer.isHidden = true
+        addChild(ghostPlayer)
 
         for index in 0..<7 {
             let dot = SKShapeNode(circleOfRadius: max(1.5, 3.4 - CGFloat(index) * 0.28))
@@ -319,6 +351,8 @@ final class GameScene: SKScene {
         moveStars(by: CGFloat(dt))
         asteroids.forEach { $0.zRotation += CGFloat(dt) * 0.7 }
         updateProjectiles(dt: CGFloat(dt))
+        updatePowerUp(dt: dt)
+        updateGhost(dt: dt)
 
         switch state {
         case .orbiting:
@@ -350,6 +384,7 @@ final class GameScene: SKScene {
     }
 
     private func launch() {
+        launchedClutch = orbitWaitTime >= orbitGraceTime + orbitCountdownTime - 1.05
         state = .flying
         hideOrbitTimer()
         setAimGuideVisible(false)
@@ -419,6 +454,18 @@ final class GameScene: SKScene {
     private func fireProjectile(dx: CGFloat, dy: CGFloat) {
         let length = max(hypot(dx, dy), 1)
         let direction = CGVector(dx: dx / length, dy: dy / length)
+        fireSingleProjectile(direction: direction)
+        if activePowerUp == .tripleShot {
+            let angle = atan2(direction.dy, direction.dx)
+            for offset in [-0.18, 0.18] {
+                fireSingleProjectile(direction: CGVector(dx: cos(angle + offset), dy: sin(angle + offset)))
+            }
+        }
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        SoundManager.shared.play(.shoot)
+    }
+
+    private func fireSingleProjectile(direction: CGVector) {
         let projectile = ProjectileNode()
         projectile.position = CGPoint(x: player.position.x + direction.dx * 30,
                                       y: player.position.y + direction.dy * 30)
@@ -426,8 +473,6 @@ final class GameScene: SKScene {
         projectile.zRotation = atan2(direction.dy, direction.dx)
         addChild(projectile)
         projectiles.append(projectile)
-        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-        SoundManager.shared.play(.shoot)
     }
 
     private func updateProjectiles(dt: CGFloat) {
@@ -569,6 +614,10 @@ final class GameScene: SKScene {
             if coinDistance < 25 { collectCoin() }
         }
 
+        if let powerUpNode, hypot(player.position.x - powerUpNode.position.x, player.position.y - powerUpNode.position.y) < 30 {
+            collectPowerUp()
+        }
+
         for asteroid in asteroids {
             if hypot(player.position.x - asteroid.position.x, player.position.y - asteroid.position.y) < 27 {
                 failOrUseShield(at: asteroid.position)
@@ -593,8 +642,14 @@ final class GameScene: SKScene {
         combo = wasQuick ? combo + 1 : 0
         let comboBonus = combo >= 3 ? min(combo / 3, 3) : 0
         let planetBonus = targetPlanet.isBonus ? 2 : 0
-        let gained = 1 + comboBonus + planetBonus + (isPerfect ? 1 : 0)
+        let bossBonus = targetPlanet.name == "bossPlanet" ? 4 : 0
+        let clutchBonus = launchedClutch ? 2 : 0
+        let gained = 1 + comboBonus + planetBonus + bossBonus + clutchBonus + (isPerfect ? 1 : 0)
         score += gained
+        if score >= nextBossAt {
+            bossDue = true
+            nextBossAt += 10
+        }
         updateSpaceZone()
         if multiplayerRoundActive {
             multiplayerTotalScore += gained
@@ -605,9 +660,14 @@ final class GameScene: SKScene {
         scoreLabel.text = "\(score)"
         scoreLabel.run(.sequence([.scale(to: 1.25, duration: 0.08), .scale(to: 1, duration: 0.12)]))
         showReward(points: gained, quick: wasQuick, bonus: targetPlanet.isBonus, perfect: isPerfect)
+        if clutchBonus > 0 { showCenterMessage("CLUTCH!  +2", color: .systemOrange) }
         burst(at: targetPlanet.position, color: targetPlanet.fillColor)
         if isPerfect {
-            flash(color: .systemYellow, alpha: 0.13)
+            flash(color: .systemYellow, alpha: reducedEffects ? 0.06 : 0.2)
+            if !reducedEffects {
+                cameraNode.run(.sequence([.scale(to: 0.9, duration: 0.07), .scale(to: 1, duration: 0.18)]))
+                burst(at: targetPlanet.position, color: .white)
+            }
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             SoundManager.shared.play(.coin)
         }
@@ -624,6 +684,7 @@ final class GameScene: SKScene {
 
         let oldPlanet = currentPlanet
         currentPlanet = targetPlanet
+        currentPlanet.removeAction(forKey: "movingPlanet")
         currentPlanet.pulse()
         orbitAngle = atan2(player.position.y - currentPlanet.position.y,
                            player.position.x - currentPlanet.position.x)
@@ -644,30 +705,59 @@ final class GameScene: SKScene {
     private func spawnTarget() {
         let colors = currentZone.planetColors
         let isBonus = score > 2 && Int.random(in: 0..<5) == 0
+        let isBoss = bossDue
+        bossDue = false
         targetPlanet = PlanetNode(
-            radius: isBonus ? 27 : CGFloat.random(in: 31...44),
-            color: isBonus ? .systemYellow : colors.randomElement()!,
+            radius: isBoss ? 54 : (isBonus ? 27 : CGFloat.random(in: 31...44)),
+            color: isBoss ? .systemRed : (isBonus ? .systemYellow : colors.randomElement()!),
             isBonus: isBonus,
             image: planetImages.randomElement()
         )
+        if isBoss {
+            targetPlanet.name = "bossPlanet"
+            let ring = SKShapeNode(circleOfRadius: 67)
+            ring.strokeColor = .systemOrange
+            ring.lineWidth = 3
+            ring.glowWidth = 10
+            ring.fillColor = .clear
+            ring.run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 2.2)))
+            targetPlanet.addChild(ring)
+            showCenterMessage("BOSS-PLANET  +4", color: .systemRed)
+        }
         var candidate = CGPoint.zero
-        repeat {
-            candidate = randomPoint(margin: 82)
-        } while hypot(candidate.x - currentPlanet.position.x, candidate.y - currentPlanet.position.y) < 180
+        if dailyMode {
+            let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+            let angle = CGFloat((day * 37 + score * 71) % 360) * .pi / 180
+            let radius = min(size.width, size.height) * (0.28 + CGFloat((day + score) % 13) / 100)
+            candidate = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+        } else {
+            repeat { candidate = randomPoint(margin: 82) }
+            while hypot(candidate.x - currentPlanet.position.x, candidate.y - currentPlanet.position.y) < 180
+        }
         targetPlanet.position = candidate
         targetPlanet.setScale(0.1)
         addChild(targetPlanet)
         targetPlanet.run(.springScale(to: 1, duration: 0.32))
+        if score >= 12 && !isBoss {
+            let dx = CGFloat((score * 17) % 35 + 12)
+            targetPlanet.run(.repeatForever(.sequence([
+                .moveBy(x: dx, y: -dx * 0.45, duration: 1.35),
+                .moveBy(x: -dx, y: dx * 0.45, duration: 1.35)
+            ])), withKey: "movingPlanet")
+        }
         spawnExtras()
     }
 
     private func spawnExtras() {
         collectible?.removeFromParent()
         collectible = nil
+        powerUpNode?.removeFromParent()
+        powerUpNode = nil
+        offeredPowerUp = nil
         asteroids.forEach { $0.removeFromParent() }
         asteroids.removeAll()
 
-        if Int.random(in: 0..<3) != 0 {
+        if dailyMode || Int.random(in: 0..<3) != 0 {
             let coin = SKShapeNode(circleOfRadius: 12)
             coin.fillColor = .systemYellow
             coin.strokeColor = .white
@@ -676,27 +766,134 @@ final class GameScene: SKScene {
             coin.zPosition = 7
             let middle = CGPoint(x: (currentPlanet.position.x + targetPlanet.position.x) / 2,
                                  y: (currentPlanet.position.y + targetPlanet.position.y) / 2)
-            coin.position = CGPoint(x: middle.x + CGFloat.random(in: -45...45), y: middle.y + CGFloat.random(in: -45...45))
+            let offset = dailyMode ? CGFloat((score * 19) % 61 - 30) : CGFloat.random(in: -45...45)
+            coin.position = CGPoint(x: middle.x + offset, y: middle.y - offset * 0.55)
             coin.run(.repeatForever(.sequence([.scale(to: 1.22, duration: 0.45), .scale(to: 0.88, duration: 0.45)])))
             addChild(coin)
             collectible = coin
         }
 
+        if score >= 3 && (dailyMode ? score % 5 == 0 : Int.random(in: 0..<5) == 0) { spawnPowerUp() }
+
         guard score >= 8 else { return }
         let count = min(1 + score / 20, 3)
-        for _ in 0..<count {
+        for index in 0..<count {
             let asteroid = makeAsteroid()
-            var position = randomPoint(margin: 95)
+            let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+            let seededAngle = CGFloat((day * 23 + score * 41 + index * 109) % 360) * .pi / 180
+            var position = dailyMode
+                ? CGPoint(x: cos(seededAngle) * size.width * 0.31, y: sin(seededAngle) * size.height * 0.31)
+                : randomPoint(margin: 95)
             var attempts = 0
             while (hypot(position.x - currentPlanet.position.x, position.y - currentPlanet.position.y) < 105 ||
                    hypot(position.x - targetPlanet.position.x, position.y - targetPlanet.position.y) < 105) && attempts < 20 {
-                position = randomPoint(margin: 95)
+                position = dailyMode
+                    ? CGPoint(x: cos(seededAngle + CGFloat(attempts) * 0.4) * size.width * 0.28,
+                              y: sin(seededAngle + CGFloat(attempts) * 0.4) * size.height * 0.28)
+                    : randomPoint(margin: 95)
                 attempts += 1
             }
             asteroid.position = position
+            if score >= 15 {
+                let drift = dailyMode ? CGFloat(25 + (score + index * 9) % 30) : CGFloat.random(in: 22...55)
+                asteroid.run(.repeatForever(.sequence([
+                    .moveBy(x: drift, y: -drift * 0.65, duration: 1.1),
+                    .moveBy(x: -drift, y: drift * 0.65, duration: 1.1)
+                ])))
+            }
             addChild(asteroid)
             asteroids.append(asteroid)
         }
+    }
+
+    private func spawnPowerUp() {
+        let choices = PowerUp.allCases
+        let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        let kind = dailyMode
+            ? choices[(day + score) % choices.count]
+            : (choices.randomElement() ?? .magnet)
+        offeredPowerUp = kind
+        let node = SKShapeNode(circleOfRadius: 15)
+        node.fillColor = kind == .slowMotion ? .systemBlue : (kind == .magnet ? .systemPink : .systemGreen)
+        node.strokeColor = .white
+        node.lineWidth = 2
+        node.glowWidth = 12
+        node.zPosition = 8
+        let icon = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+        icon.text = kind == .slowMotion ? "⏱" : (kind == .magnet ? "⊂" : "×3")
+        icon.fontSize = 13
+        icon.verticalAlignmentMode = .center
+        node.addChild(icon)
+        let middle = CGPoint(x: (currentPlanet.position.x + targetPlanet.position.x) / 2,
+                             y: (currentPlanet.position.y + targetPlanet.position.y) / 2)
+        node.position = CGPoint(x: middle.x + 38, y: middle.y - 32)
+        node.run(.repeatForever(.sequence([.scale(to: 1.2, duration: 0.4), .scale(to: 0.9, duration: 0.4)])))
+        addChild(node)
+        powerUpNode = node
+    }
+
+    private func collectPowerUp() {
+        guard let node = powerUpNode, let kind = offeredPowerUp else { return }
+        powerUpNode = nil
+        offeredPowerUp = nil
+        activePowerUp = kind
+        powerUpRemaining = 8
+        powerUpLabel.text = kind == .slowMotion ? "⏱ ZEITLUPE" : (kind == .magnet ? "◉ MAGNET" : "×3 SCHUSS")
+        burst(at: node.position, color: node.fillColor)
+        node.removeFromParent()
+        showCenterMessage("POWER-UP!", color: .systemMint)
+        SoundManager.shared.play(.shield)
+    }
+
+    private func updatePowerUp(dt: TimeInterval) {
+        if activePowerUp != nil {
+            powerUpRemaining -= dt
+            if powerUpRemaining <= 0 { activePowerUp = nil; powerUpLabel.text = "" }
+        }
+        if activePowerUp == .slowMotion, state == .flying {
+            let speed = max(hypot(flightVelocity.dx, flightVelocity.dy), 1)
+            if speed > 245 {
+                let factor = max(CGFloat(245) / speed, CGFloat(pow(0.985, dt * 60)))
+                flightVelocity.dx *= factor
+                flightVelocity.dy *= factor
+            }
+        }
+        if activePowerUp == .magnet, let collectible {
+            let dx = player.position.x - collectible.position.x
+            let dy = player.position.y - collectible.position.y
+            if hypot(dx, dy) < 150 {
+                collectible.position.x += dx * CGFloat(dt) * 2.8
+                collectible.position.y += dy * CGFloat(dt) * 2.8
+            }
+        }
+    }
+
+    private func updateGhost(dt: TimeInterval) {
+        guard state == .orbiting || state == .flying else { ghostPlayer.isHidden = true; return }
+        runElapsed += dt
+        sampleAccumulator += dt
+        if sampleAccumulator >= 0.08 {
+            sampleAccumulator = 0
+            if runSamples.count < 8_000 { runSamples.append(player.position) }
+        }
+        let index = Int(runElapsed / 0.08)
+        if index < ghostSamples.count {
+            ghostPlayer.position = ghostSamples[index]
+            ghostPlayer.isHidden = false
+        } else {
+            ghostPlayer.isHidden = true
+        }
+    }
+
+    private func loadGhost() {
+        let values = UserDefaults.standard.array(forKey: "bestGhostPath") as? [Double] ?? []
+        ghostSamples = stride(from: 0, to: values.count - 1, by: 2).map { CGPoint(x: values[$0], y: values[$0 + 1]) }
+    }
+
+    private func saveGhost() {
+        let values = runSamples.flatMap { [Double($0.x), Double($0.y)] }
+        UserDefaults.standard.set(values, forKey: "bestGhostPath")
+        ghostSamples = runSamples
     }
 
     private func makeAsteroid() -> SKShapeNode {
@@ -733,6 +930,15 @@ final class GameScene: SKScene {
     }
 
     private func failOrUseShield(at point: CGPoint) {
+        if trainingMode {
+            state = .orbiting
+            flightVelocity = .zero
+            steeringPoint = nil
+            hideOrbitTimer()
+            placePlayerOnOrbit()
+            showCenterMessage("TRAINING – WEITER", color: .systemMint)
+            return
+        }
         guard hasShield else {
             endGame()
             return
@@ -783,6 +989,7 @@ final class GameScene: SKScene {
         player.removeAllActions()
         player.run(.sequence([.group([.fadeOut(withDuration: 0.25), .scale(to: 2.2, duration: 0.25)]), .hide()]))
         let isNewBest = score > bestScore
+        if isNewBest { saveGhost() }
         bestScore = max(bestScore, score)
         UserDefaults.standard.set(bestScore, forKey: "bestScore")
         GameCenterManager.shared.submit(score: score)
@@ -811,6 +1018,8 @@ final class GameScene: SKScene {
     }
 
     func startMultiplayerRound() {
+        trainingMode = false
+        dailyMode = false
         multiplayerRoundActive = true
         multiplayerTotalScore = 0
         restart()
@@ -825,6 +1034,8 @@ final class GameScene: SKScene {
     }
 
     func startSoloGame() {
+        trainingMode = false
+        dailyMode = false
         isPaused = false
         restart()
         state = .ready
@@ -833,6 +1044,35 @@ final class GameScene: SKScene {
         titleLabel.alpha = 1
         instructionLabel.text = "TIPPE ZUM STARTEN"
         instructionLabel.alpha = 1
+    }
+
+    func startDailyGame() {
+        trainingMode = false
+        dailyMode = true
+        startFreshReady(title: "DAILY RUN")
+    }
+
+    func startTrainingGame() {
+        trainingMode = true
+        dailyMode = false
+        startFreshReady(title: "TRAINING")
+    }
+
+    private func startFreshReady(title: String) {
+        isPaused = false
+        restart()
+        state = .ready
+        titleLabel.text = title
+        titleLabel.fontColor = .systemMint
+        titleLabel.alpha = 1
+        instructionLabel.text = "TIPPE ZUM STARTEN"
+        instructionLabel.alpha = 1
+    }
+
+    func setGameplayOptions(reducedEffects: Bool, colorBlindMode: Bool) {
+        self.reducedEffects = reducedEffects
+        self.colorBlindMode = colorBlindMode
+        aimDots.forEach { $0.fillColor = colorBlindMode ? .white : .systemCyan.withAlphaComponent(0.72) }
     }
 
     func pauseForMenu() {
@@ -901,6 +1141,13 @@ final class GameScene: SKScene {
         zoneLabel.fontColor = .systemCyan
         runCoins = 0
         combo = 0
+        nextBossAt = 10
+        bossDue = false
+        runElapsed = 0
+        sampleAccumulator = 0
+        runSamples.removeAll(keepingCapacity: true)
+        loadGhost()
+        ghostPlayer.isHidden = ghostSamples.isEmpty
         orbitTravel = 0
         hideOrbitTimer()
         flightTime = 0
@@ -914,6 +1161,12 @@ final class GameScene: SKScene {
         shieldLabel.text = ""
         collectible?.removeFromParent()
         collectible = nil
+        powerUpNode?.removeFromParent()
+        powerUpNode = nil
+        offeredPowerUp = nil
+        activePowerUp = nil
+        powerUpRemaining = 0
+        powerUpLabel.text = ""
         asteroids.forEach { $0.removeFromParent() }
         asteroids.removeAll()
         scoreLabel.text = "0"

@@ -12,6 +12,7 @@ struct GameView: View {
     @State private var showMultiplayerMenu = false
     @State private var showMainMenu = true
     @State private var tutorialPage = 0
+    @State private var showSettings = false
     @StateObject private var recording = RecordingManager.shared
     @StateObject private var store = StoreManager.shared
     @StateObject private var multiplayer = MultiplayerManager.shared
@@ -25,7 +26,11 @@ struct GameView: View {
     @AppStorage("totalCoinsCollected") private var totalCoinsCollected = 0
     @AppStorage("asteroidsDestroyed") private var asteroidsDestroyed = 0
     @AppStorage("dailyBest") private var dailyBest = 0
+    @AppStorage("multiplayerWins") private var multiplayerWins = 0
+    @AppStorage("multiplayerLosses") private var multiplayerLosses = 0
     @AppStorage("selectedTrail") private var selectedTrail = "classic"
+    @AppStorage("reducedEffects") private var reducedEffects = false
+    @AppStorage("colorBlindMode") private var colorBlindMode = false
 
     private let players = [
         ("rocket", "RAKETE"),
@@ -281,9 +286,16 @@ struct GameView: View {
                 scene.pauseForBackground()
             }
         }
+        .onChange(of: reducedEffects) { _, value in
+            scene.setGameplayOptions(reducedEffects: value, colorBlindMode: colorBlindMode)
+        }
+        .onChange(of: colorBlindMode) { _, value in
+            scene.setGameplayOptions(reducedEffects: reducedEffects, colorBlindMode: value)
+        }
         .onAppear {
             GameCenterManager.shared.authenticate()
             scene.setTrailStyle(selectedTrail)
+            scene.setGameplayOptions(reducedEffects: reducedEffects, colorBlindMode: colorBlindMode)
             scene.onScoreChanged = { score in
                 MultiplayerManager.shared.submit(score: score)
             }
@@ -302,6 +314,9 @@ struct GameView: View {
         }
         .sheet(isPresented: $showMultiplayerMenu) {
             multiplayerMenu
+        }
+        .sheet(isPresented: $showSettings) {
+            settingsView
         }
     }
 
@@ -343,6 +358,28 @@ struct GameView: View {
                         .background(Color.cyan, in: Capsule())
                 }
 
+                HStack(spacing: 12) {
+                    Button {
+                        scene.startDailyGame()
+                        withAnimation { showMainMenu = false }
+                    } label: {
+                        Label("DAILY RUN", systemImage: "calendar")
+                            .font(.system(size: 12, weight: .black, design: .rounded))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .background(Color.purple.opacity(0.55), in: Capsule())
+                    }
+                    Button {
+                        scene.startTrainingGame()
+                        withAnimation { showMainMenu = false }
+                    } label: {
+                        Label("TRAINING", systemImage: "graduationcap.fill")
+                            .font(.system(size: 12, weight: .black, design: .rounded))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .background(Color.mint.opacity(0.45), in: Capsule())
+                    }
+                }
+                .foregroundStyle(.white)
+
                 Button {
                     if store.ownsMultiplayer { showMultiplayerMenu = true } else { showShop = true }
                 } label: {
@@ -374,9 +411,25 @@ struct GameView: View {
                         .foregroundStyle(.white.opacity(0.72))
                 }
 
-                Text("BEST  \(UserDefaults.standard.integer(forKey: "bestScore"))   •   ✦ \(UserDefaults.standard.integer(forKey: "coins"))")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.55))
+                HStack(spacing: 18) {
+                    Button { showSettings = true } label: {
+                        Label("EINSTELLUNGEN", systemImage: "gearshape.fill")
+                    }
+                    Button { shareGame() } label: {
+                        Label("TEILEN", systemImage: "square.and.arrow.up")
+                    }
+                }
+                .font(.system(size: 10, weight: .black, design: .rounded))
+                .foregroundStyle(.white.opacity(0.66))
+
+                VStack(spacing: 5) {
+                    Text("LEVEL \(ProgressManager.shared.level)   •   BEST \(UserDefaults.standard.integer(forKey: "bestScore"))   •   ✦ \(UserDefaults.standard.integer(forKey: "coins"))")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                    ProgressView(value: Double(ProgressManager.shared.xpInLevel), total: 100)
+                        .tint(.cyan)
+                        .frame(maxWidth: 230)
+                }
+                .foregroundStyle(.white.opacity(0.58))
                 Spacer()
             }
             .foregroundStyle(.white)
@@ -397,6 +450,61 @@ struct GameView: View {
             .frame(height: 62)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
+    }
+
+    private var settingsView: some View {
+        NavigationStack {
+            Form {
+                Section("SPIELGEFÜHL") {
+                    Toggle("Reduzierte Effekte", isOn: $reducedEffects)
+                    Toggle("Kontrastreiche Zielhilfe", isOn: $colorBlindMode)
+                }
+                Section("MODI") {
+                    Label("Training verhindert Game Over", systemImage: "graduationcap.fill")
+                    Label("Daily Run nutzt jeden Tag dieselbe Route", systemImage: "calendar")
+                }
+                Section("FORTSCHRITT") {
+                    LabeledContent("Level", value: "\(ProgressManager.shared.level)")
+                    LabeledContent("Erfahrung", value: "\(ProgressManager.shared.xpInLevel) / 100 XP")
+                    LabeledContent("Rang", value: playerRank)
+                    LabeledContent("Entdeckte Zonen", value: "\(unlockedZoneCount) / 4")
+                    ProgressView(value: Double(ProgressManager.shared.xpInLevel), total: 100).tint(.cyan)
+                }
+            }
+            .navigationTitle("EINSTELLUNGEN")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { showSettings = false }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var playerRank: String {
+        switch ProgressManager.shared.level {
+        case 1..<3: return "Orbit Rookie"
+        case 3..<6: return "Sternenpilot"
+        case 6..<10: return "Galaxy Ace"
+        default: return "Void Legend"
+        }
+    }
+
+    private var unlockedZoneCount: Int {
+        let best = UserDefaults.standard.integer(forKey: "bestScore")
+        return best >= 30 ? 4 : (best >= 18 ? 3 : (best >= 8 ? 2 : 1))
+    }
+
+    private func shareGame() {
+        let best = UserDefaults.standard.integer(forKey: "bestScore")
+        let text = "Mein Orbit-Rush-Rekord: \(best) Punkte 🚀 Schaffst du mehr?"
+        let controller = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        guard let windowScene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
+              let root = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
+        var presenter = root
+        while let shown = presenter.presentedViewController { presenter = shown }
+        controller.popoverPresentationController?.sourceView = presenter.view
+        presenter.present(controller, animated: true)
     }
 
     private var multiplayerMenu: some View {
@@ -665,6 +773,8 @@ struct GameView: View {
                     statRow("PERFECT", perfectLandings)
                     statRow("STERNE", totalCoinsCollected)
                     statRow("ASTEROIDEN", asteroidsDestroyed)
+                    statRow("MULTIPLAYER-SIEGE", multiplayerWins)
+                    statRow("MULTIPLAYER-NIEDERLAGEN", multiplayerLosses)
                 }
 
                 VStack(spacing: 8) {
