@@ -11,6 +11,7 @@ struct GameView: View {
     @State private var showShop = false
     @State private var showMultiplayerMenu = false
     @State private var showMainMenu = true
+    @State private var tutorialPage = 0
     @StateObject private var recording = RecordingManager.shared
     @StateObject private var store = StoreManager.shared
     @StateObject private var multiplayer = MultiplayerManager.shared
@@ -364,6 +365,15 @@ struct GameView: View {
                     menuTile("RANGLISTE", icon: "trophy.fill", color: .yellow) { GameCenterManager.shared.showLeaderboard() }
                 }
 
+                Button {
+                    tutorialPage = 0
+                    withAnimation(.easeOut(duration: 0.2)) { hasSeenTutorial = false }
+                } label: {
+                    Label("SPIELANLEITUNG", systemImage: "questionmark.circle.fill")
+                        .font(.system(size: 11, weight: .black, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+
                 Text("BEST  \(UserDefaults.standard.integer(forKey: "bestScore"))   •   ✦ \(UserDefaults.standard.integer(forKey: "coins"))")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.55))
@@ -691,60 +701,107 @@ struct GameView: View {
 
     private var tutorialOverlay: some View {
         ZStack {
-            Color(red: 0.02, green: 0.03, blue: 0.08).opacity(0.96)
+            Color(red: 0.02, green: 0.03, blue: 0.08).opacity(0.98)
                 .ignoresSafeArea()
 
-            VStack(spacing: 22) {
-                playerImage("rocket")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 92, height: 92)
-
-                VStack(spacing: 7) {
-                    Text("ORBIT RUSH")
-                        .font(.system(size: 34, weight: .black, design: .rounded))
-                    Text("Ein Finger. Unendlich weit.")
-                        .foregroundStyle(.cyan)
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+            VStack(spacing: 26) {
+                HStack {
+                    Text("SO SPIELST DU")
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .tracking(1.5)
+                    Spacer()
+                    Button("ÜBERSPRINGEN") { finishTutorial() }
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
                 }
 
-                VStack(alignment: .leading, spacing: 15) {
-                    tutorialRow(icon: "hand.tap.fill", text: "Tippen, um vom Planeten abzuspringen")
-                    tutorialRow(icon: "hand.draw.fill", text: "Im Flug halten und sanft zum Ziel lenken")
-                    tutorialRow(icon: "arrow.trianglehead.2.clockwise.rotate.90", text: "Figur antippen für einen Rettungsversuch")
-                    tutorialRow(icon: "scope", text: "Von der Figur wegwischen, um zu schießen")
-                    tutorialRow(icon: "star.fill", text: "Sterne sammeln – aber nicht abschießen")
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(tutorialStep.color.opacity(0.12))
+                        .frame(width: 190, height: 190)
+                    Circle()
+                        .stroke(tutorialStep.color.opacity(0.45), lineWidth: 2)
+                        .frame(width: 150, height: 150)
+                    Image(systemName: tutorialStep.icon)
+                        .font(.system(size: 62, weight: .bold))
+                        .foregroundStyle(tutorialStep.color)
+                        .symbolEffect(.pulse, options: .repeating)
                 }
-                .padding(.horizontal, 8)
+
+                VStack(spacing: 12) {
+                    Text(tutorialStep.title)
+                        .font(.system(size: 29, weight: .black, design: .rounded))
+                        .multilineTextAlignment(.center)
+                    Text(tutorialStep.text)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.68))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .frame(maxWidth: 340)
+                }
+
+                Spacer()
+
+                HStack(spacing: 8) {
+                    ForEach(0..<tutorialSteps.count, id: \.self) { index in
+                        Capsule()
+                            .fill(index == tutorialPage ? tutorialStep.color : Color.white.opacity(0.18))
+                            .frame(width: index == tutorialPage ? 26 : 8, height: 8)
+                    }
+                }
 
                 Button {
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        hasSeenTutorial = true
+                    if tutorialPage < tutorialSteps.count - 1 {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { tutorialPage += 1 }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } else {
+                        finishTutorial()
                     }
                 } label: {
-                    Text("LOS GEHT'S")
+                    Text(tutorialPage == tutorialSteps.count - 1 ? "VERSTANDEN – LOS!" : "WEITER")
                         .font(.system(size: 17, weight: .black, design: .rounded))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
-                        .background(Color.cyan, in: Capsule())
+                        .background(tutorialStep.color, in: Capsule())
                 }
-                .padding(.top, 8)
             }
             .foregroundStyle(.white)
-            .padding(30)
+            .padding(.horizontal, 30)
+            .padding(.vertical, 52)
             .frame(maxWidth: 430)
         }
+        .id(tutorialPage)
+        .transition(.opacity)
     }
 
-    private func tutorialRow(icon: String, text: String) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .foregroundStyle(.cyan)
-                .frame(width: 28)
-            Text(text)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-        }
+    private struct TutorialStep {
+        let icon: String
+        let title: String
+        let text: String
+        let color: Color
+    }
+
+    private var tutorialSteps: [TutorialStep] {
+        [
+            TutorialStep(icon: "hand.tap.fill", title: "IM RICHTIGEN MOMENT", text: "Du kreist um einen Planeten. Tippe kurz, um in der angezeigten Richtung abzuspringen.", color: .cyan),
+            TutorialStep(icon: "hand.draw.fill", title: "LENKE DEINEN FLUG", text: "Berühre während des Flugs eine Stelle und halte den Finger. Deine Figur zieht spürbar in diese Richtung.", color: .mint),
+            TutorialStep(icon: "arrow.uturn.backward.circle.fill", title: "RETTE DEN SPRUNG", text: "Tippe deine Figur im Flug mehrmals an. Jede Wendung gibt dir eine neue Chance auf den Zielplaneten.", color: .purple),
+            TutorialStep(icon: "scope", title: "RÄUME DEN WEG FREI", text: "Wische von deiner Figur in Schussrichtung. Zerstöre Asteroiden – aber pass auf Sterne und Boni auf.", color: .orange),
+            TutorialStep(icon: "timer", title: "BLEIB IN BEWEGUNG", text: "Nach kurzer Zeit erscheint 3–2–1. Bei null startet deine Figur automatisch. Sammle Sterne und lande möglichst mittig.", color: .yellow)
+        ]
+    }
+
+    private var tutorialStep: TutorialStep {
+        tutorialSteps[min(max(tutorialPage, 0), tutorialSteps.count - 1)]
+    }
+
+    private func finishTutorial() {
+        tutorialPage = 0
+        withAnimation(.easeOut(duration: 0.25)) { hasSeenTutorial = true }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private func playerImage(_ name: String) -> Image {

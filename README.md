@@ -193,3 +193,9 @@ Die Figur umkreist einen Planeten. Tippe, um sie tangential ins All zu schießen
 - Vier dynamische Zonen: Deep Space, Neon Nebula, Solar Storm und The Void
 - Hintergrund, Sterne und Planetenfarben verändern sich mit dem Fortschritt
 - Zonenwechsel werden mit Effekt und Haptik angekündigt
+# v10.2 Interaktives Tutorial
+
+- Neues Tutorial mit fünf klaren, einzeln animierten Schritten
+- Erklärt Absprung, Flugsteuerung, Rettungswendung, Schießen und Orbit-Timer
+- Fortschrittsanzeige, Weiter- und Überspringen-Funktion
+- Über „Spielanleitung“ im Hauptmenü jederzeit erneut aufrufbar
