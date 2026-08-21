@@ -199,3 +199,9 @@ Die Figur umkreist einen Planeten. Tippe, um sie tangential ins All zu schießen
 - Erklärt Absprung, Flugsteuerung, Rettungswendung, Schießen und Orbit-Timer
 - Fortschrittsanzeige, Weiter- und Überspringen-Funktion
 - Über „Spielanleitung“ im Hauptmenü jederzeit erneut aufrufbar
+# v10.3 Tutorial-Animationsfix
+
+- Jede Tutorial-Seite zeigt jetzt eine eigene echte Bewegungsdemo
+- Animiertes Tippen, Fluglenken, Rettungswende, Projektil und 3–2–1-Timer
+- Flüssige Timeline-Animation mit 30 Bildern pro Sekunde
+- Seitenwechsel animieren nur die Demonstration statt den gesamten Bildschirm

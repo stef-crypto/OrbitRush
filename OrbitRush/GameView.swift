@@ -717,18 +717,10 @@ struct GameView: View {
 
                 Spacer()
 
-                ZStack {
-                    Circle()
-                        .fill(tutorialStep.color.opacity(0.12))
-                        .frame(width: 190, height: 190)
-                    Circle()
-                        .stroke(tutorialStep.color.opacity(0.45), lineWidth: 2)
-                        .frame(width: 150, height: 150)
-                    Image(systemName: tutorialStep.icon)
-                        .font(.system(size: 62, weight: .bold))
-                        .foregroundStyle(tutorialStep.color)
-                        .symbolEffect(.pulse, options: .repeating)
-                }
+                tutorialAnimation
+                    .frame(width: 220, height: 210)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                    .id(tutorialPage)
 
                 VStack(spacing: 12) {
                     Text(tutorialStep.title)
@@ -773,8 +765,96 @@ struct GameView: View {
             .padding(.vertical, 52)
             .frame(maxWidth: 430)
         }
-        .id(tutorialPage)
-        .transition(.opacity)
+    }
+
+    private var tutorialAnimation: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            let wave = sin(time * 3.2)
+            let progress = (time * 0.55).truncatingRemainder(dividingBy: 1)
+
+            ZStack {
+                Circle()
+                    .fill(tutorialStep.color.opacity(0.10))
+                    .frame(width: 196, height: 196)
+                Circle()
+                    .stroke(tutorialStep.color.opacity(0.38), lineWidth: 2)
+                    .frame(width: 154, height: 154)
+
+                if tutorialPage == 0 {
+                    playerImage(selectedPlayer)
+                        .resizable().scaledToFit()
+                        .frame(width: 58, height: 58)
+                        .scaleEffect(1 + max(0, wave) * 0.13)
+                    Circle()
+                        .stroke(tutorialStep.color.opacity(0.8), lineWidth: 3)
+                        .frame(width: 74, height: 74)
+                        .scaleEffect(0.8 + progress * 0.7)
+                        .opacity(1 - progress)
+                    Image(systemName: "hand.tap.fill")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(.white)
+                        .offset(x: 48, y: 55 - max(0, wave) * 9)
+                } else if tutorialPage == 1 {
+                    dottedPath
+                    playerImage(selectedPlayer)
+                        .resizable().scaledToFit()
+                        .frame(width: 56, height: 56)
+                        .rotationEffect(.degrees(28))
+                        .offset(x: -58 + progress * 116, y: 55 - progress * 110)
+                    Image(systemName: "hand.point.up.left.fill")
+                        .font(.system(size: 29, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .offset(x: 62, y: -58)
+                } else if tutorialPage == 2 {
+                    playerImage(selectedPlayer)
+                        .resizable().scaledToFit()
+                        .frame(width: 62, height: 62)
+                        .rotationEffect(.degrees(progress * 190))
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 78, weight: .black))
+                        .foregroundStyle(tutorialStep.color.opacity(0.72))
+                        .rotationEffect(.degrees(-20))
+                        .scaleEffect(0.95 + max(0, wave) * 0.08)
+                } else if tutorialPage == 3 {
+                    playerImage(selectedPlayer)
+                        .resizable().scaledToFit()
+                        .frame(width: 58, height: 58)
+                        .offset(x: -45)
+                    Capsule()
+                        .fill(tutorialStep.color)
+                        .frame(width: 28, height: 8)
+                        .shadow(color: tutorialStep.color, radius: 8)
+                        .offset(x: -12 + progress * 104)
+                        .opacity(progress < 0.88 ? 1 : 0)
+                    Image(systemName: "burst.fill")
+                        .font(.system(size: 35))
+                        .foregroundStyle(.yellow)
+                        .offset(x: 70)
+                        .scaleEffect(progress > 0.72 ? 1.25 : 0.7)
+                        .opacity(progress > 0.68 ? 1 : 0.35)
+                } else {
+                    Text(String(3 - Int((time * 1.1).truncatingRemainder(dividingBy: 3))))
+                        .font(.system(size: 72, weight: .black, design: .rounded))
+                        .foregroundStyle(tutorialStep.color)
+                        .scaleEffect(1 + max(0, wave) * 0.10)
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(tutorialStep.color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                        .frame(width: 128, height: 128)
+                        .rotationEffect(.degrees(-90))
+                }
+            }
+        }
+    }
+
+    private var dottedPath: some View {
+        Path { path in
+            path.move(to: CGPoint(x: 28, y: 162))
+            path.addQuadCurve(to: CGPoint(x: 188, y: 38), control: CGPoint(x: 115, y: 125))
+        }
+        .stroke(tutorialStep.color.opacity(0.55), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [5, 9]))
+        .frame(width: 216, height: 200)
     }
 
     private struct TutorialStep {
