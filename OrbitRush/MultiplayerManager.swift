@@ -330,7 +330,7 @@ extension MultiplayerManager: @preconcurrency MCBrowserViewControllerDelegate {
     }
 }
 
-extension MultiplayerManager: @preconcurrency MCSessionDelegate {
+extension MultiplayerManager: MCSessionDelegate {
     nonisolated func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         Task { @MainActor [weak self] in
             guard let self else { return }

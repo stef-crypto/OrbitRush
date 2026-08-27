@@ -2,7 +2,7 @@
 
 ## Fertig im Projekt
 
-- Release-Version 1.0, Build 19
+- Release-Version 1.0, Build 23
 - iOS-26-SDK-kompatibles Projekt
 - 1024×1024 App-Icon ohne Transparenz
 - Datenschutzmanifest für UserDefaults (`CA92.1`)
@@ -16,12 +16,15 @@
 
 1. Prüfen, ob die kostenpflichtige Apple-Developer-Mitgliedschaft aktiv ist.
 2. Neue App mit Bundle-ID `com.stefko.orbitrush` anlegen.
-3. Einen Screenshot vom iPhone-17-/16-/15-Pro-Max-Simulator in 6,9-Zoll-Auflösung aufnehmen; drei bis fünf Screenshots sind besser.
-4. `Metadata-de.md` eintragen und echte Support-/Datenschutz-URLs ergänzen.
-5. Unter „App Privacy“ auswählen: **No, we do not collect data from this app**.
-6. Altersfreigabe-Fragen wahrheitsgemäß ausfüllen; das Spiel enthält keine realistische Gewalt, Glücksspiele oder Nutzerinhalte.
-7. In Xcode: **Product → Archive → Distribute App → App Store Connect → Upload**.
-8. Verarbeiteten Build auswählen, „Add for Review“ und danach „Submit for Review“.
+3. Xcode 26 auswählen und mit dem iOS-26-SDK archivieren.
+4. Drei bis fünf echte Screenshots in der höchsten von App Store Connect angebotenen iPhone-Auflösung aufnehmen.
+5. GitHub Pages für den Branch `main` aktivieren und die vorbereiteten Support-/Datenschutz-URLs testen.
+6. `Metadata-de.md` und `Metadata-en.md` in App Store Connect eintragen.
+7. Unter „App Privacy“ auswählen: **No, we do not collect data from this app**.
+8. Das aktuelle Altersfreigabe-Formular wahrheitsgemäß ausfüllen; das Spiel enthält keine realistische Gewalt, Glücksspiele oder Nutzerinhalte.
+9. Export-Compliance-Frage beantworten: Die App verwendet keine eigene oder nicht von Apple bereitgestellte Verschlüsselung.
+10. In Xcode: **Product → Archive → Distribute App → App Store Connect → Upload**.
+11. Verarbeiteten Build auswählen, „Add for Review“ und danach „Submit for Review“.
 
 ## In-App-Käufe vor dem Upload
 
@@ -57,3 +60,11 @@ Alle Achievements erhalten 100 Punkte Gesamtwert über das Set verteilt und werd
 - `com.stefko.orbitrush.hunter25` — Asteroidenjäger — 25 Asteroiden zerstören
 
 Eine Veröffentlichung am selben Tag ist nicht garantiert: Apples Verarbeitung und App Review bestimmen den tatsächlichen Freigabezeitpunkt.
+
+## Optionale Apple-Watch-App
+
+- Target `OrbitRush Watch App` ist eingebettet; Bundle-ID: `com.stefko.orbitrush.watchkitapp`.
+- Mindestversion: watchOS 10.
+- Auf echter Apple Watch prüfen: Installation, Crown-Lenkung, Rettungstipp, Haptik, Neustart und verschiedene Displaygrößen.
+- Watch-Screenshots und App-Store-Metadaten ergänzen, wenn die Watch-App bereits mit Version 1.0 veröffentlicht wird.
+- Falls der iPhone-Launch nicht verzögert werden soll, Watch-Target vor dem ersten Archive aus dem Embed-Schritt entfernen und als späteres Update ausliefern.

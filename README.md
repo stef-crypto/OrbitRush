@@ -18,7 +18,7 @@ Ein nativer iPhone-Prototyp mit SwiftUI und SpriteKit.
 
 ## Version 5
 
-- Spieler-Auswahl mit Rakete, Dino, M5-artiger Sportlimousine und Doppeladler
+- Spieler-Auswahl mit Rakete, Dino, futuristischem Sportwagen und Doppeladler
 - Eigene transparente Neon-Arcade-Sprites
 - Auswahl wird dauerhaft gespeichert
 
@@ -217,3 +217,12 @@ Die Figur umkreist einen Planeten. Tippe, um sie tangential ins All zu schießen
 - Persönlicher Bestlauf als transparenter Ghost
 - Multiplayer-Siege und -Niederlagen in der Statistik
 - Teilen-Funktion sowie Optionen für reduzierte Effekte und kontrastreiche Zielhilfe
+
+# Apple Watch – Wrist Mission
+
+- Eigenständige kompakte watchOS-Spielrunde ab watchOS 10
+- Digital Crown dreht die Flugrichtung während des Flugs
+- Tippen startet im Orbit und löst im Flug einen glücksbasierten Rettungsimpuls aus
+- Automatischer Start nach zu langem Warten
+- Eigener Watch-Highscore und präzises Haptikfeedback
+- Responsives Neon-Spielfeld für unterschiedliche Apple-Watch-Größen

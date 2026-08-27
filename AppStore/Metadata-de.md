@@ -22,6 +22,10 @@ In Orbit Rush umkreist du leuchtende Planeten und entscheidest im perfekten Mome
 • Rettungsmanöver für scheinbar verlorene Flüge
 • Präzise Schüsse per Wischgeste
 • Combos, Goldplaneten und Schutzschilde
+• Zeitlupe, Sternmagnet und Dreifachschuss
+• Boss-Planeten, Kometen und bewegliche Ziele
+• Daily Run, Trainingsmodus und persönlicher Ghost
+• Spielerlevel, XP und dauerhafte Statistiken
 • Sammelbare Sterne und steigender Schwierigkeitsgrad
 • Eigene Fotos als Planeten verwenden
 • Rakete, Dino, Sportlimousine und Doppeladler
@@ -38,11 +42,13 @@ arcade,weltraum,orbit,planeten,geschicklichkeit,reaktion,highscore,rakete,casual
 
 ## Support-URL
 
-Noch einzutragen.
+Nach Aktivierung von GitHub Pages:
+`https://stef-crypto.github.io/OrbitRush/AppStore/Support.html`
 
 ## Datenschutz-URL
 
-Noch zu hosten: `PrivacyPolicy.html`
+Nach Aktivierung von GitHub Pages:
+`https://stef-crypto.github.io/OrbitRush/AppStore/PrivacyPolicy.html`
 
 ## Kategorie
 

@@ -35,7 +35,7 @@ struct GameView: View {
     private let players = [
         ("rocket", "RAKETE"),
         ("dino", "DINO"),
-        ("m5", "M5"),
+        ("m5", "SPORTWAGEN"),
         ("eagle", "ADLER")
     ]
 
@@ -52,132 +52,12 @@ struct GameView: View {
                 .background(Color(red: 0.025, green: 0.035, blue: 0.09))
 
             if !showMainMenu {
-            VStack {
-                HStack {
-                    Button {
-                        scene.pauseForMenu()
-                        withAnimation(.easeOut(duration: 0.2)) { showMainMenu = true }
-                    } label: {
-                        Image(systemName: "house.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    Button {
-                        recording.toggleRecording()
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .stroke(recording.isRecording ? Color.red : Color.white.opacity(0.45), lineWidth: 2)
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: recording.isRecording ? 13 : 17, height: recording.isRecording ? 13 : 17)
-                                .clipShape(recording.isRecording ? AnyShape(RoundedRectangle(cornerRadius: 3)) : AnyShape(Circle()))
-                        }
-                        .frame(width: 40, height: 40)
-                        .background(.ultraThinMaterial, in: Circle())
-                        .opacity(recording.isBusy ? 0.45 : 1)
-                    }
-                    .disabled(recording.isBusy)
-                    Button {
-                        withAnimation(.easeOut(duration: 0.2)) { showStats = true }
-                    } label: {
-                        Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.cyan)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    Button {
-                        showShop = true
-                    } label: {
-                        Image(systemName: "bag.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.mint)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    Button {
-                        GameCenterManager.shared.showLeaderboard()
-                    } label: {
-                        Image(systemName: "trophy.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.yellow)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    Button {
-                        if store.ownsMultiplayer {
-                            showMultiplayerMenu = true
-                        } else {
-                            showShop = true
-                        }
-                    } label: {
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.orange)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    Button {
-                        let enabled = !soundEnabled
-                        soundEnabled = enabled
-                        SoundManager.shared.setSoundEnabled(enabled)
-                    } label: {
-                        Image(systemName: soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    Menu {
-                        Button {
-                            let enabled = !musicEnabled
-                            musicEnabled = enabled
-                            SoundManager.shared.setMusicEnabled(enabled)
-                        } label: {
-                            Label(
-                                musicEnabled ? "Spielmusik ausschalten" : "Spielmusik einschalten",
-                                systemImage: musicEnabled ? "music.note.slash" : "music.note"
-                            )
-                        }
-
-                        Divider()
-
-                        Button {
-                            openMusicService("https://music.apple.com/")
-                        } label: {
-                            Label("Apple Music öffnen", systemImage: "apple.logo")
-                        }
-
-                        Button {
-                            openMusicService("https://open.spotify.com/")
-                        } label: {
-                            Label("Spotify öffnen", systemImage: "play.circle.fill")
-                        }
-                    } label: {
-                        Image(systemName: musicEnabled ? "music.note" : "music.note.slash")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
+                VStack {
+                    gameplayToolbar
                     Spacer()
-                    Button {
-                        scene.togglePause()
-                    } label: {
-                        Image(systemName: "pause.fill")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
                 }
-                Spacer()
-            }
-            .padding(.top, 54)
-            .padding(.trailing, 18)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
             }
 
             if !showMainMenu {
@@ -320,6 +200,95 @@ struct GameView: View {
         }
     }
 
+    private var gameplayToolbar: some View {
+        HStack(spacing: 9) {
+            hudButton("house.fill") {
+                scene.pauseForMenu()
+                withAnimation(.easeOut(duration: 0.2)) { showMainMenu = true }
+            }
+
+            Button { recording.toggleRecording() } label: {
+                ZStack {
+                    Circle()
+                        .stroke(recording.isRecording ? Color.red : Color.white.opacity(0.45), lineWidth: 2)
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: recording.isRecording ? 12 : 16, height: recording.isRecording ? 12 : 16)
+                        .clipShape(recording.isRecording ? AnyShape(RoundedRectangle(cornerRadius: 3)) : AnyShape(Circle()))
+                }
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+                .opacity(recording.isBusy ? 0.45 : 1)
+            }
+            .disabled(recording.isBusy)
+            .accessibilityLabel(recording.isRecording ? "Aufnahme stoppen" : "Aufnahme starten")
+
+            Menu {
+                Button { showStats = true } label: {
+                    Label("Statistik", systemImage: "chart.bar.fill")
+                }
+                Button { showShop = true } label: {
+                    Label("Orbit Shop", systemImage: "bag.fill")
+                }
+                Button { GameCenterManager.shared.showLeaderboard() } label: {
+                    Label("Rangliste", systemImage: "trophy.fill")
+                }
+                Button {
+                    if store.ownsMultiplayer { showMultiplayerMenu = true } else { showShop = true }
+                } label: {
+                    Label("Multiplayer", systemImage: "person.2.fill")
+                }
+
+                Divider()
+
+                Button {
+                    soundEnabled.toggle()
+                    SoundManager.shared.setSoundEnabled(soundEnabled)
+                } label: {
+                    Label(soundEnabled ? "Ton ausschalten" : "Ton einschalten",
+                          systemImage: soundEnabled ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                }
+                Button {
+                    musicEnabled.toggle()
+                    SoundManager.shared.setMusicEnabled(musicEnabled)
+                } label: {
+                    Label(musicEnabled ? "Spielmusik ausschalten" : "Spielmusik einschalten",
+                          systemImage: musicEnabled ? "music.note.slash" : "music.note")
+                }
+                Button { openMusicService("https://music.apple.com/") } label: {
+                    Label("Apple Music öffnen", systemImage: "apple.logo")
+                }
+                Button { openMusicService("https://open.spotify.com/") } label: {
+                    Label("Spotify öffnen", systemImage: "play.circle.fill")
+                }
+                Button { showSettings = true } label: {
+                    Label("Einstellungen", systemImage: "gearshape.fill")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 17, weight: .black))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .accessibilityLabel("Mehr Optionen")
+
+            Spacer(minLength: 12)
+
+            hudButton("pause.fill") { scene.togglePause() }
+        }
+    }
+
+    private func hudButton(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+    }
+
     private var mainMenu: some View {
         ZStack {
             LinearGradient(
@@ -329,8 +298,8 @@ struct GameView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 18) {
-                Spacer()
+            ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 16) {
                 playerImage(selectedPlayer)
                     .resizable()
                     .scaledToFit()
@@ -430,12 +399,14 @@ struct GameView: View {
                         .frame(maxWidth: 230)
                 }
                 .foregroundStyle(.white.opacity(0.58))
-                Spacer()
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 24)
-            .padding(.vertical, 42)
+            .padding(.vertical, 24)
             .frame(maxWidth: 480)
+            .frame(maxWidth: .infinity)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
